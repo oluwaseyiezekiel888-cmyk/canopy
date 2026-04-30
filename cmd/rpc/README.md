@@ -58,10 +58,8 @@
 - /v1/query/validator-set
 - /v1/query/checkpoint
 - /v1/subscribe-rc-info
-- /debug/blocked
-- /debug/heap
-- /debug/cpu
-- /debug/routine
+- /debug/pprof
+- /debug/pprof/*name
 - /v1/eth
 - /v1/admin/keystore
 - /v1/admin/keystore-new-key
@@ -245,7 +243,7 @@ $ curl -H "Content-Type: application/json" -X POST --data '{}' localhost:50002/v
 
 **Route:** `/v1/query/indexer-blobs`
 
-**Description**: responds with the current and previous indexer blobs as protobuf bytes. The indexer blob is a snapshot of the blockchain state at a given height, containing blocks, accounts, pools, validators, orders, params, supply, dex data, committee data, and signer information. Accounts, pools, and validators are always returned as deltas between the current and previous blobs.
+**Description**: responds with the current and previous indexer blobs as protobuf bytes. The indexer blob is a snapshot of the blockchain state at a given height, containing blocks, accounts, pools, validators, orders, params, supply, dex data, committee data, and signer information. Accounts, pools, and validators are returned as deltas between the current and previous blobs.
 
 **HTTP Method**: `POST`
 
@@ -2593,12 +2591,8 @@ $ curl -X POST localhost:50002/v1/query/order \
 
 - **height**: `uint64` – the block height to read data from (optional: use 0 to read from the latest block)
 - **committee**: `uint64` – the unique identifier of the committee to filter by (optional: use 0 to get all committees)
-- **sellersSendAddress**: `hex-string` – the seller address to filter orders by (optional: use "" to get all seller addresses)
-- **buyerSendAddress**: `hex-string` – the buyer address to filter locked orders by (optional: use "" to get all buyer addresses)
 - **pageNumber**: `int` – the page number to retrieve (optional: starts at 1)
 - **perPage**: `int` – the number of orders per page (optional: defaults to system default)
-
-**Note**: `sellersSendAddress` and `buyerSendAddress` are mutually exclusive filters. You cannot use both in the same request.
 
 **Response**:
 - **pageNumber**: `int` - the current page number
@@ -2665,40 +2659,6 @@ $ curl -X POST localhost:50002/v1/query/orders \
         "committee": 1,
         "pageNumber": 1,
         "perPage": 20
-      }'
-```
-
-**Example 3: Filter by sellersSendAddress with pagination (uses indexed lookup)**
-```
-$ curl -X POST localhost:50002/v1/query/orders \
-  -H "Content-Type: application/json" \
-  -d '{
-        "sellersSendAddress": "bb43c46244cef15f2451a446cea011fc1a2eddfe",
-        "pageNumber": 1,
-        "perPage": 10
-      }'
-```
-
-**Example 4: Filter by both committee and sellersSendAddress with pagination (most efficient)**
-```
-$ curl -X POST localhost:50002/v1/query/orders \
-  -H "Content-Type: application/json" \
-  -d '{
-        "committee": 1,
-        "sellersSendAddress": "bb43c46244cef15f2451a446cea011fc1a2eddfe",
-        "pageNumber": 1,
-        "perPage": 10
-      }'
-```
-
-**Example 5: Filter by buyerSendAddress with pagination (locked orders only)**
-```
-$ curl -X POST localhost:50002/v1/query/orders \
-  -H "Content-Type: application/json" \
-  -d '{
-        "buyerSendAddress": "aaac0b3d64c12c6f164545545b2ba2ab4d80deff",
-        "pageNumber": 1,
-        "perPage": 10
       }'
 ```
 
@@ -3581,13 +3541,14 @@ $ curl -X POST http://localhost:50003/v1/admin/keystore-import-raw \
 
 **Route:** `/v1/admin/keystore-delete`
 
-**Description**: removes a key from the keystore using either the address or nickname
+**Description**: removes a key from the keystore using either the address or nickname after validating the password
 
 **HTTP Method**: `POST`
 
 **Request**:
 - **nickname**: `string` - the nickname associated with the key
 - **address**: `string` - the address associated with the key
+- **password**: `string` - **(required)** the plain-text password used to encrypt the key
 
 **Response**: `hex-string` - the 20 byte address of the newly imported key
 
@@ -3596,7 +3557,8 @@ $ curl -X POST http://localhost:50003/v1/admin/keystore-import-raw \
 $ curl -X POST http://localhost:50003/v1/admin/keystore-delete \
   -H "Content-Type: application/json" \
   -d '{
-    "nickname":"my_key_2"
+    "nickname":"my_key_2",
+    "password":"my_password"
     }'
 
 > "b0b4a45ca70104ecc943a49e4553f0e7e1135b01"
@@ -5088,11 +5050,9 @@ Jun 11 09:47:09.521 INFO: Reset BFT (NEW_HEIGHT)
 ## Golang Profiling Debug
 
 **Route:**
-- DebugBlockedRoutePath = "/debug/blocked"
-- DebugHeapRoutePath    = "/debug/heap"
-- DebugCPURoutePath     = "/debug/cpu"
-- DebugRoutineRoutePath = "/debug/routine"
+- /debug/pprof
+- /debug/pprof/*name
 
-**Description**: returns an HTTP handler that serves the named profile. Available profiles can be found in [runtime/pprof.Profile]. See https://pkg.go.dev/net/http/pprof
+**Description**: serves the Go pprof index and named pprof handlers. These routes are exposed on the profiling server bound to `ProfilingPort`, not the main RPC port. Available profiles can be found in `net/http/pprof`. See https://pkg.go.dev/net/http/pprof
 
 **HTTP Method**: `GET`
